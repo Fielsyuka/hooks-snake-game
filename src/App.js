@@ -5,9 +5,10 @@ import Button from './components/Button';
 import ManipulationPanel from './components/ManipulationPanel';
 import { initFields } from './utils';
 
-const initialPosition = { x: 17, y: 17 };
-const initialValues = initFields(35, initialPosition);
 const defaultInterval = 100;
+const defaultFieldSize = 35;
+const initialPosition = { x: 17, y: 17 };
+const initialValues = initFields(defaultFieldSize, initialPosition);
 
 const GameStatus = Object.freeze({
   init: 'init',
@@ -44,7 +45,7 @@ const DirectionKeyCodeMap = Object.freeze({
   40: Direction.down,
 });
 
-let timer = undefined;
+let timer;
 
 const unsubscribe = () => {
   if (!timer) {
@@ -65,14 +66,14 @@ function App() {
     setStatus(GameStatus.init);
     setPosition(initialPosition);
     setDirection(Direction.up)
-    setFields(initFields(35, initialPosition));
+    setFields(initFields(defaultFieldSize, initialPosition));
   }
 
-  const isCollision = (fieldSize, position) => {
+  const isCollision = (position) => {
     if (position.y < 0 || position.x < 0) {
       return true;
     }
-    if (position.y > fieldSize - 1 || position.x > fieldSize - 1) {
+    if (position.y > defaultFieldSize - 1 || position.x > defaultFieldSize - 1) {
       return true;
     }
     return false;
@@ -90,26 +91,28 @@ function App() {
 
   useEffect(() => {
     timer = setInterval(() => {
-      if (!position || status !== GameStatus.playing) {
+      if (status !== GameStatus.playing) {
         return;
       }
-      const { x, y } = position;
       const delta = Delta[direction];
-      const newPosition = {
-        x: x + delta.x,
-        y: y + delta.y,
-      };
-      if (!isCollision(fields.length, newPosition)) {
-        fields[y][x] = '';
-        fields[newPosition.y][newPosition.x] = 'snake';
-        setPosition(newPosition);
-        setFields(fields);
-      } else {
-        setStatus(GameStatus.gamever);
-      }
+
+      setPosition((prevPosition) => {
+        const newPosition = {
+          x: prevPosition.x + delta.x,
+          y: prevPosition.y + delta.y,
+        };
+        if (!isCollision(newPosition)) {
+          fields[prevPosition.y][prevPosition.x] = '';
+          fields[newPosition.y][newPosition.x] = 'snake';
+          setFields(fields);
+        } else {
+          setStatus(GameStatus.gamever);
+        }
+        return newPosition;
+      });
     }, defaultInterval);
     return unsubscribe;
-  },[position, status, fields, direction]);
+  },[status, position]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
