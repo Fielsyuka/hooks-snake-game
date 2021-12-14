@@ -5,8 +5,8 @@ const Field = ({fields}) => {
     <div className="field">
       {
         fields.map((row) => {
-          return row.map((col) => {
-            return <div className={`dots ${col}`}></div>
+          return row.map((col, index) => {
+            return <div className={`dots ${col}`} key={index}></div>
           })
         })
       }

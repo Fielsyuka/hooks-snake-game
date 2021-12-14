@@ -58,53 +58,14 @@ function App() {
   const [position, setPosition] = useState(initialPosition);
   const [status, setStatus] = useState(GameStatus.init);
   const [direction, setDirection] = useState(Direction.up);
-  const [tick, setTick] = useState(0);
-
-  useEffect(() => {
-    setPosition(initialPosition)
-    timer = setInterval(() => {
-      setTick(tick => tick + 1);
-    }, defaultInterval);
-    return unsubscribe;
-  }, []);
-
-  useEffect(() => {
-    if (!position || status !== GameStatus.playing) {
-      return;
-    }
-    const canContinue = handleMoving();
-    if (!canContinue) {
-      setStatus(GameStatus.gamever);
-    }
-  }, [tick])
 
   const onStart = () => setStatus(GameStatus.playing);
 
   const onRestart = () => {
-    timer = setInterval(() => {
-      setTick(tick => tick + 1);
-    }, defaultInterval);
     setStatus(GameStatus.init);
     setPosition(initialPosition);
     setDirection(Direction.up)
     setFields(initFields(35, initialPosition));
-  }
-
-  const handleMoving = () => {
-    const { x, y } = position;
-    const delta = Delta[direction];
-    const newPosition = {
-      x: x + delta.x,
-      y: y + delta.y,
-    };
-    if (isCollision(fields.length, newPosition)) {
-      return false;
-    }
-    fields[y][x] = '';
-    fields[newPosition.y][newPosition.x] = 'snake';
-    setPosition(newPosition);
-    setFields(fields);
-    return true;
   }
 
   const isCollision = (fieldSize, position) => {
@@ -128,12 +89,34 @@ function App() {
   }, [direction, status]);
 
   useEffect(() => {
+    timer = setInterval(() => {
+      if (!position || status !== GameStatus.playing) {
+        return;
+      }
+      const { x, y } = position;
+      const delta = Delta[direction];
+      const newPosition = {
+        x: x + delta.x,
+        y: y + delta.y,
+      };
+      if (!isCollision(fields.length, newPosition)) {
+        fields[y][x] = '';
+        fields[newPosition.y][newPosition.x] = 'snake';
+        setPosition(newPosition);
+        setFields(fields);
+      } else {
+        setStatus(GameStatus.gamever);
+      }
+    }, defaultInterval);
+    return unsubscribe;
+  },[position, status, fields, direction]);
+
+  useEffect(() => {
     const handleKeyDown = (e) => {
       const newDirection = DirectionKeyCodeMap[e.keyCode];
       if (!newDirection) {
         return;
       }
-
       onChangeDirection(newDirection);
     };
     document.addEventListener('keydown', handleKeyDown);
@@ -146,7 +129,7 @@ function App() {
         <div className="title-container">
           <h1 className="nav-title">Snake Game</h1>
         </div>
-        <Navigation />
+        <Navigation key="navigation" />
       </header>
       <main className="main">
         <Field fields={fields} />
