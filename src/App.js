@@ -3,12 +3,7 @@ import Navigation from './components/Navigation';
 import Field from './components/Field';
 import Button from './components/Button';
 import ManipulationPanel from './components/ManipulationPanel';
-import { initFields } from './utils';
-
-const defaultInterval = 100;
-const defaultFieldSize = 35;
-const initialPosition = { x: 17, y: 17 };
-const initialValues = initFields(defaultFieldSize, initialPosition);
+import { initFields, getFoodPosition } from './utils';
 
 const GameStatus = Object.freeze({
   init: 'init',
@@ -45,6 +40,12 @@ const DirectionKeyCodeMap = Object.freeze({
   40: Direction.down,
 });
 
+const defaultInterval = 100;
+const defaultFieldSize = 35;
+const initialBody = { x: 17, y: 17 };
+const initialFood = getFoodPosition(defaultFieldSize, [initialBody]);
+const initialValues = initFields(defaultFieldSize, initialBody, initialFood);
+
 let timer;
 
 const unsubscribe = () => {
@@ -56,7 +57,8 @@ const unsubscribe = () => {
 
 function App() {
   const [fields, setFields] = useState(initialValues);
-  const [body, setBody] = useState([initialPosition]);
+  const [body, setBody] = useState([initialBody]);
+  // const [food, setFood] = useState(initialFood);
   const [status, setStatus] = useState(GameStatus.init);
   const [direction, setDirection] = useState(Direction.up);
 
@@ -64,9 +66,9 @@ function App() {
 
   const onRestart = () => {
     setStatus(GameStatus.init);
-    setBody(initialPosition);
-    setDirection(Direction.up)
-    setFields(initFields(defaultFieldSize, initialPosition));
+    setBody([initialBody]);
+    setDirection(Direction.up);
+    setFields(initFields(defaultFieldSize, initialBody, initialFood));
   }
 
   const isCollision = (position) => {
@@ -79,6 +81,10 @@ function App() {
     return false;
   }
 
+  const isEatingMyself = (fields, position) => {
+    return fields[position.y][position.x] === 'snake';
+  }
+
   const onChangeDirection = useCallback((newDirection) => {
     if (status !== GameStatus.playing) {
       return direction;
@@ -89,35 +95,48 @@ function App() {
     setDirection(newDirection);
   }, [direction, status]);
 
+  // field body/food に変化があったら更新 ***これは途中で消えちゃってだめ
+  // useEffect(() => {
+  //   if (status !== GameStatus.playing) {
+  //     return;
+  //   }
+  //   setFields((prevFields) => {
+  //     prevFields[body[0].y][body[0].x] = 'snake';
+  //     prevFields[food.y][food.x] = 'food';
+  //     return prevFields;
+  //   });
+  // }, [body, food]);
+
+  // メイン処理
   useEffect(() => {
+    if (status !== GameStatus.playing) {
+      return;
+    }
     timer = setInterval(() => {
-      if (status !== GameStatus.playing) {
-        return;
-      }
       const delta = Delta[direction];
-      setBody((prevPosition) => {
-        const newBody = [...prevPosition];
-        const newPosition = {
-          x: prevPosition[0].x + delta.x,
-          y: prevPosition[0].y + delta.y,
-        };
-        if (!isCollision(newPosition)) {
-          if (fields[newPosition.y][newPosition.x] !== 'food') {
-            const removingTrack = newBody.pop();
-            fields[removingTrack.y][removingTrack.x] = '';
-          }
-          fields[newPosition.y][newPosition.x] = 'snake';
-          newBody.unshift(newPosition);
-          setFields(fields);
+      const newPosition = {
+        x: body[0].x + delta.x,
+        y: body[0].y + delta.y,
+      };
+
+      if (isCollision(newPosition) || isEatingMyself(fields, newPosition)) {
+        setStatus(GameStatus.gamever);
+      } else {
+        const newBody = [newPosition, ...body];
+        if (fields[newPosition.y][newPosition.x] !== 'food') {
+          const removingTrack = newBody.pop();
+          fields[removingTrack.y][removingTrack.x] = '';
         } else {
-          setStatus(GameStatus.gamever);
+          const food = getFoodPosition(defaultFieldSize, [newPosition, ...newBody]);
+          fields[food.y][food.x] = 'food';
         }
-        console.log(newBody);
-        return newBody;
-      });
+        fields[newPosition.y][newPosition.x] = 'snake';
+        setBody(newBody);
+        setFields(fields);
+      }
     }, defaultInterval);
     return unsubscribe;
-  },[status, body]);
+  }, [status, body]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
