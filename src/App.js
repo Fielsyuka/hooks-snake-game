@@ -56,7 +56,7 @@ const unsubscribe = () => {
 
 function App() {
   const [fields, setFields] = useState(initialValues);
-  const [position, setPosition] = useState(initialPosition);
+  const [body, setBody] = useState([initialPosition]);
   const [status, setStatus] = useState(GameStatus.init);
   const [direction, setDirection] = useState(Direction.up);
 
@@ -64,7 +64,7 @@ function App() {
 
   const onRestart = () => {
     setStatus(GameStatus.init);
-    setPosition(initialPosition);
+    setBody(initialPosition);
     setDirection(Direction.up)
     setFields(initFields(defaultFieldSize, initialPosition));
   }
@@ -95,24 +95,29 @@ function App() {
         return;
       }
       const delta = Delta[direction];
-
-      setPosition((prevPosition) => {
+      setBody((prevPosition) => {
+        const newBody = [...prevPosition];
         const newPosition = {
-          x: prevPosition.x + delta.x,
-          y: prevPosition.y + delta.y,
+          x: prevPosition[0].x + delta.x,
+          y: prevPosition[0].y + delta.y,
         };
         if (!isCollision(newPosition)) {
-          fields[prevPosition.y][prevPosition.x] = '';
+          if (fields[newPosition.y][newPosition.x] !== 'food') {
+            const removingTrack = newBody.pop();
+            fields[removingTrack.y][removingTrack.x] = '';
+          }
           fields[newPosition.y][newPosition.x] = 'snake';
+          newBody.unshift(newPosition);
           setFields(fields);
         } else {
           setStatus(GameStatus.gamever);
         }
-        return newPosition;
+        console.log(newBody);
+        return newBody;
       });
     }, defaultInterval);
     return unsubscribe;
-  },[status, position]);
+  },[status, body]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
