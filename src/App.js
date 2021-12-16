@@ -3,7 +3,7 @@ import Navigation from './components/Navigation';
 import Field from './components/Field';
 import Button from './components/Button';
 import ManipulationPanel from './components/ManipulationPanel';
-import { initFields } from './utils';
+import { initFields, getFoodPosition } from './utils';
 
 const initialPosition = { x: 17, y: 17 };
 const initialValues = initFields(35, initialPosition);
@@ -55,13 +55,12 @@ const unsubscribe = () => {
 
 function App() {
   const [fields, setFields] = useState(initialValues);
-  const [position, setPosition] = useState(initialPosition);
+  const [body, setBody] = useState([initialPosition])
   const [status, setStatus] = useState(GameStatus.init);
   const [direction, setDirection] = useState(Direction.up);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    setPosition(initialPosition)
     timer = setInterval(() => {
       setTick(tick => tick + 1);
     }, defaultInterval);
@@ -69,7 +68,10 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!position || status !== GameStatus.playing) {
+    // setBody(
+    //    new Array(15).fill('').map((_item, index) => ({ x: 17, y: 17 + index })),
+    //  )
+    if (status !== GameStatus.playing) {
       return;
     }
     const canContinue = handleMoving();
@@ -85,24 +87,32 @@ function App() {
       setTick(tick => tick + 1);
     }, defaultInterval);
     setStatus(GameStatus.init);
-    setPosition(initialPosition);
-    setDirection(Direction.up)
+    setBody([initialPosition]);
+    setDirection(Direction.up);
     setFields(initFields(35, initialPosition));
   }
 
   const handleMoving = () => {
-    const { x, y } = position;
+    const { x, y } = body[0];
     const delta = Delta[direction];
     const newPosition = {
       x: x + delta.x,
       y: y + delta.y,
     };
-    if (isCollision(fields.length, newPosition)) {
+    if (isCollision(fields.length, newPosition) || isEatingMyself(fields, newPosition)) {
       return false;
     }
-    fields[y][x] = '';
+     const newBody = [...body]
+     if (fields[newPosition.y][newPosition.x] !== 'food') {
+       const removingTrack = newBody.pop()
+       fields[removingTrack.y][removingTrack.x] = ''
+     } else {
+       const food = getFoodPosition(fields.length, [...newBody, newPosition])
+       fields[food.y][food.x] = 'food'
+     }
     fields[newPosition.y][newPosition.x] = 'snake';
-    setPosition(newPosition);
+    newBody.unshift(newPosition)
+    setBody(newBody)
     setFields(fields);
     return true;
   }
@@ -116,6 +126,10 @@ function App() {
     }
     return false;
   }
+
+  const isEatingMyself = (fields, position) => {
+   return fields[position.y][position.x] === 'snake'
+ }
 
   const onChangeDirection = useCallback((newDirection) => {
     if (status !== GameStatus.playing) {
