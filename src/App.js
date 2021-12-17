@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useReducer } from 'react';
 import Navigation from './components/Navigation';
 import Field from './components/Field';
 import Button from './components/Button';
 import ManipulationPanel from './components/ManipulationPanel';
 import { initFields, getFoodPosition } from './utils';
 
+// 定数
 const GameStatus = Object.freeze({
   init: 'init',
   playing: 'playing',
@@ -40,14 +41,8 @@ const DirectionKeyCodeMap = Object.freeze({
   40: Direction.down,
 });
 
-const defaultInterval = 100;
-const defaultFieldSize = 35;
-const initialBody = { x: 17, y: 17 };
-const initialFood = getFoodPosition(defaultFieldSize, [initialBody]);
-const initialValues = initFields(defaultFieldSize, initialBody, initialFood);
-
+// タイマー
 let timer;
-
 const unsubscribe = () => {
   if (!timer) {
     return;
@@ -55,10 +50,72 @@ const unsubscribe = () => {
   clearInterval(timer);
 }
 
+// 関数
+const isCollision = (position) => {
+  if (position.y < 0 || position.x < 0) {
+    return true;
+  }
+  if (position.y > defaultFieldSize - 1 || position.x > defaultFieldSize - 1) {
+    return true;
+  }
+  return false;
+}
+
+const isEatingMyself = (fields, position) => {
+  return fields[position.y][position.x] === 'snake';
+}
+
+// initial/default
+const defaultInterval = 100;
+const defaultFieldSize = 35;
+const initialBody = { x: 17, y: 17 };
+const initialFood = getFoodPosition(defaultFieldSize, [initialBody]);
+const initialFields = initFields(defaultFieldSize, initialBody, initialFood);
+
+// reducer
+const initialState = {
+  body: [initialBody],
+  food: initialFood,
+  removePos: undefined
+};
+
+const reducer = (state, action) => {
+  const nextPos = {
+    x: state.body[0].x + Delta[action.direction].x,
+    y: state.body[0].y + Delta[action.direction].y,
+  }
+  const newBody = [nextPos, ...state.body];
+
+  switch (action.type) {
+    case "restart":
+      return {
+        body: [initialBody],
+        food: initialFood,
+        removePos: undefined
+      };
+    case "continue":
+      const remove = newBody.pop();
+
+      return {
+        body: newBody,
+        food: state.food,
+        removePos: remove
+      };
+    case "newFood":
+      const newFoodPos = getFoodPosition(defaultFieldSize, newBody);
+      return {
+        body: newBody,
+        food: newFoodPos,
+        removePos: undefined
+      };
+    default:
+      return state
+  }
+};
+
 function App() {
-  const [fields, setFields] = useState(initialValues);
-  const [body, setBody] = useState([initialBody]);
-  // const [food, setFood] = useState(initialFood);
+  const [state, dispatch] = useReducer(reducer, initialState);
+  const [fields, setFields] = useState(initialFields);
   const [status, setStatus] = useState(GameStatus.init);
   const [direction, setDirection] = useState(Direction.up);
 
@@ -66,23 +123,9 @@ function App() {
 
   const onRestart = () => {
     setStatus(GameStatus.init);
-    setBody([initialBody]);
     setDirection(Direction.up);
+    dispatch({ type: 'restart', direction: direction });
     setFields(initFields(defaultFieldSize, initialBody, initialFood));
-  }
-
-  const isCollision = (position) => {
-    if (position.y < 0 || position.x < 0) {
-      return true;
-    }
-    if (position.y > defaultFieldSize - 1 || position.x > defaultFieldSize - 1) {
-      return true;
-    }
-    return false;
-  }
-
-  const isEatingMyself = (fields, position) => {
-    return fields[position.y][position.x] === 'snake';
   }
 
   const onChangeDirection = useCallback((newDirection) => {
@@ -95,48 +138,52 @@ function App() {
     setDirection(newDirection);
   }, [direction, status]);
 
-  // field body/food に変化があったら更新 ***これは途中で消えちゃってだめ
-  // useEffect(() => {
-  //   if (status !== GameStatus.playing) {
-  //     return;
-  //   }
-  //   setFields((prevFields) => {
-  //     prevFields[body[0].y][body[0].x] = 'snake';
-  //     prevFields[food.y][food.x] = 'food';
-  //     return prevFields;
-  //   });
-  // }, [body, food]);
-
   // メイン処理
   useEffect(() => {
     if (status !== GameStatus.playing) {
       return;
     }
-    timer = setInterval(() => {
-      const delta = Delta[direction];
-      const newPosition = {
-        x: body[0].x + delta.x,
-        y: body[0].y + delta.y,
-      };
 
-      if (isCollision(newPosition) || isEatingMyself(fields, newPosition)) {
-        setStatus(GameStatus.gamever);
+    timer = setInterval(() => {
+    const newPosition = {
+      x: state.body[0].x + Delta[direction].x,
+      y: state.body[0].y + Delta[direction].y,
+    };
+
+    if (isCollision(newPosition) || isEatingMyself(fields, newPosition)) {
+      setStatus(GameStatus.gamever);
+    } else {
+      if (fields[newPosition.y][newPosition.x] === 'food') {
+        dispatch({
+          type: "newFood",
+          direction: direction
+        });
       } else {
-        const newBody = [newPosition, ...body];
-        if (fields[newPosition.y][newPosition.x] !== 'food') {
-          const removingTrack = newBody.pop();
-          fields[removingTrack.y][removingTrack.x] = '';
-        } else {
-          const food = getFoodPosition(defaultFieldSize, [newPosition, ...newBody]);
-          fields[food.y][food.x] = 'food';
-        }
-        fields[newPosition.y][newPosition.x] = 'snake';
-        setBody(newBody);
-        setFields(fields);
+        dispatch({
+          type: "continue",
+          direction: direction
+        });
       }
+    }
     }, defaultInterval);
     return unsubscribe;
-  }, [status, body]);
+  },[state, status, direction]);
+
+  // stateに変更があったらfield更新
+  useEffect(() => {
+    if (status !== GameStatus.playing) {
+      return;
+    }
+    setFields((prevFields) => {
+      const newFields = [...prevFields];
+      if (state.removePos !== undefined) {
+        newFields[state.removePos.y][state.removePos.x] = '';
+      }
+      newFields[state.body[0].y][state.body[0].x] = 'snake';
+      newFields[state.food.y][state.food.x] = 'food';
+      return newFields;
+    });
+  }, [state]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
