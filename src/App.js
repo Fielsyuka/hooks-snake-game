@@ -1,34 +1,36 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import Navigation from './components/Navigation';
-import Field from './components/Field';
-import Button from './components/Button';
-import ManipulationPanel from './components/ManipulationPanel';
-import { initFields, getFoodPosition } from './utils';
+import React, { useCallback, useEffect, useState } from "react";
+import Navigation from "./components/Navigation";
+import Field from "./components/Field";
+import Button from "./components/Button";
+import ManipulationPanel from "./components/ManipulationPanel";
+import { initFields, getFoodPosition } from "./utils";
 
 const initialPosition = { x: 17, y: 17 };
 const initialValues = initFields(35, initialPosition);
 const defaultInterval = 100;
+const defaultDifficulty = 3;
+const Difficulty = [1000, 500, 100, 50, 10];
 
 const GameStatus = Object.freeze({
-  init: 'init',
-  playing: 'playing',
-  suspended: 'suspended',
-  gamever: 'gameover'
-})
+  init: "init",
+  playing: "playing",
+  suspended: "suspended",
+  gamever: "gameover",
+});
 
 const Direction = Object.freeze({
-  up: 'up',
-  right: 'right',
-  left: 'left',
-  down: 'down'
-})
+  up: "up",
+  right: "right",
+  left: "left",
+  down: "down",
+});
 
 const OppositeDirection = Object.freeze({
-  up: 'down',
-  right: 'left',
-  left: 'right',
-  down: 'up'
-})
+  up: "down",
+  right: "left",
+  left: "right",
+  down: "up",
+});
 
 const Delta = Object.freeze({
   up: { x: 0, y: -1 },
@@ -51,21 +53,23 @@ const unsubscribe = () => {
     return;
   }
   clearInterval(timer);
-}
+};
 
 function App() {
   const [fields, setFields] = useState(initialValues);
-  const [body, setBody] = useState([initialPosition])
+  const [body, setBody] = useState([initialPosition]);
   const [status, setStatus] = useState(GameStatus.init);
   const [direction, setDirection] = useState(Direction.up);
+  const [difficulty, setDifficulty] = useState(defaultDifficulty);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
+    const interval = Difficulty[difficulty - 1];
     timer = setInterval(() => {
-      setTick(tick => tick + 1);
-    }, defaultInterval);
+      setTick((tick) => tick + 1);
+    }, interval);
     return unsubscribe;
-  }, []);
+  }, [difficulty]);
 
   useEffect(() => {
     // setBody(
@@ -78,19 +82,20 @@ function App() {
     if (!canContinue) {
       setStatus(GameStatus.gamever);
     }
-  }, [tick])
+  }, [tick]);
 
   const onStart = () => setStatus(GameStatus.playing);
+  const onStop = () => setStatus(GameStatus.suspended);
 
   const onRestart = () => {
     timer = setInterval(() => {
-      setTick(tick => tick + 1);
+      setTick((tick) => tick + 1);
     }, defaultInterval);
     setStatus(GameStatus.init);
     setBody([initialPosition]);
     setDirection(Direction.up);
     setFields(initFields(35, initialPosition));
-  }
+  };
 
   const handleMoving = () => {
     const { x, y } = body[0];
@@ -102,20 +107,20 @@ function App() {
     if (isCollision(fields.length, newPosition) || isEatingMyself(fields, newPosition)) {
       return false;
     }
-     const newBody = [...body]
-     if (fields[newPosition.y][newPosition.x] !== 'food') {
-       const removingTrack = newBody.pop()
-       fields[removingTrack.y][removingTrack.x] = ''
-     } else {
-       const food = getFoodPosition(fields.length, [...newBody, newPosition])
-       fields[food.y][food.x] = 'food'
-     }
-    fields[newPosition.y][newPosition.x] = 'snake';
-    newBody.unshift(newPosition)
-    setBody(newBody)
+    const newBody = [...body];
+    if (fields[newPosition.y][newPosition.x] !== "food") {
+      const removingTrack = newBody.pop();
+      fields[removingTrack.y][removingTrack.x] = "";
+    } else {
+      const food = getFoodPosition(fields.length, [...newBody, newPosition]);
+      fields[food.y][food.x] = "food";
+    }
+    fields[newPosition.y][newPosition.x] = "snake";
+    newBody.unshift(newPosition);
+    setBody(newBody);
     setFields(fields);
     return true;
-  }
+  };
 
   const isCollision = (fieldSize, position) => {
     if (position.y < 0 || position.x < 0) {
@@ -125,21 +130,37 @@ function App() {
       return true;
     }
     return false;
-  }
+  };
 
   const isEatingMyself = (fields, position) => {
-   return fields[position.y][position.x] === 'snake'
- }
+    return fields[position.y][position.x] === "snake";
+  };
 
-  const onChangeDirection = useCallback((newDirection) => {
-    if (status !== GameStatus.playing) {
-      return direction;
-    }
-    if (OppositeDirection[direction] === newDirection) {
-      return;
-    }
-    setDirection(newDirection);
-  }, [direction, status]);
+  const onChangeDirection = useCallback(
+    (newDirection) => {
+      if (status !== GameStatus.playing) {
+        return direction;
+      }
+      if (OppositeDirection[direction] === newDirection) {
+        return;
+      }
+      setDirection(newDirection);
+    },
+    [direction, status]
+  );
+
+  const onChangeDifficulty = useCallback(
+    (difficulty) => {
+      if (status !== GameStatus.init) {
+        return;
+      }
+      if (difficulty < 1 || difficulty > Difficulty.length) {
+        return;
+      }
+      setDifficulty(difficulty);
+    },
+    [status, difficulty]
+  );
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -150,8 +171,8 @@ function App() {
 
       onChangeDirection(newDirection);
     };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown)
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onChangeDirection]);
 
   return (
@@ -160,13 +181,13 @@ function App() {
         <div className="title-container">
           <h1 className="nav-title">Snake Game</h1>
         </div>
-        <Navigation />
+        <Navigation length={body.length} difficulty={difficulty} onChangeDifficulty={onChangeDifficulty} />
       </header>
       <main className="main">
         <Field fields={fields} />
       </main>
       <footer className="footer">
-        <Button status={status} onStart={onStart} onRestart={onRestart}/>
+        <Button status={status} onStart={onStart} onRestart={onRestart} onStop={onStop} />
         <ManipulationPanel onChange={onChangeDirection} />
       </footer>
     </div>
