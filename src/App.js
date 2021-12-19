@@ -77,32 +77,35 @@ const Difficulty = [1000, 500, 100, 50, 10];
 const initialState = {
   body: [initialBody],
   food: initialFood,
-  removePos: undefined,
+  fields: initialFields,
 };
 
 const reducer = (state, action) => {
   const newBody = [action.nextPos, ...state.body];
-
+  const newFields = [...state.fields];
   switch (action.type) {
-    case "restart":
+    case "reset":
       return {
         body: [initialBody],
         food: initialFood,
-        removePos: undefined,
+        fields: initFields(defaultFieldSize, initialBody, initialFood),
       };
     case "continue":
       const remove = newBody.pop();
+      newFields[remove.y][remove.x] = "";
+      newFields[newBody[0].y][newBody[0].x] = "snake";
       return {
+        ...state,
         body: newBody,
-        food: state.food,
-        removePos: remove,
+        fields: newFields,
       };
     case "newFood":
-      const newFoodPos = getFoodPosition(defaultFieldSize, newBody);
+      newFields[action.nextPos.y][action.nextPos.x] = "snake";
+      newFields[action.nextFood.y][action.nextFood.x] = "food";
       return {
         body: newBody,
-        food: newFoodPos,
-        removePos: undefined,
+        food: action.nextFood,
+        fields: newFields,
       };
     default:
       return state;
@@ -111,7 +114,6 @@ const reducer = (state, action) => {
 
 function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
-  const [fields, setFields] = useState(initialFields);
   const [status, setStatus] = useState(GameStatus.init);
   const [direction, setDirection] = useState(Direction.up);
   const [difficulty, setDifficulty] = useState(defaultDifficulty);
@@ -122,8 +124,7 @@ function App() {
   const onRestart = () => {
     setStatus(GameStatus.init);
     setDirection(Direction.up);
-    dispatch({ type: "restart", direction: direction });
-    setFields(initFields(defaultFieldSize, initialBody, initialFood));
+    dispatch({ type: "reset" });
   };
 
   const onChangeDirection = useCallback(
@@ -165,19 +166,19 @@ function App() {
         y: state.body[0].y + Delta[direction].y,
       };
 
-      if (isCollision(newPosition) || isEatingMyself(fields, newPosition)) {
+      if (isCollision(newPosition) || isEatingMyself(state.fields, newPosition)) {
         setStatus(GameStatus.gamever);
       } else {
-        if (fields[newPosition.y][newPosition.x] === "food") {
+        if (state.fields[newPosition.y][newPosition.x] === "food") {
+          const newFoodPos = getFoodPosition(defaultFieldSize, [...state.body, newPosition]);
           dispatch({
             type: "newFood",
-            direction: direction,
             nextPos: newPosition,
+            nextFood: newFoodPos,
           });
         } else {
           dispatch({
             type: "continue",
-            direction: direction,
             nextPos: newPosition,
           });
         }
@@ -185,22 +186,6 @@ function App() {
     }, interval);
     return unsubscribe;
   }, [state, status, direction, difficulty]);
-
-  // stateに変更があったらfield更新
-  useEffect(() => {
-    if (status !== GameStatus.playing) {
-      return;
-    }
-    setFields((prevFields) => {
-      const newFields = [...prevFields];
-      if (state.removePos !== undefined) {
-        newFields[state.removePos.y][state.removePos.x] = "";
-      }
-      newFields[state.body[0].y][state.body[0].x] = "snake";
-      newFields[state.food.y][state.food.x] = "food";
-      return newFields;
-    });
-  }, [state, status]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -223,7 +208,7 @@ function App() {
         <Navigation key="navigation" length={state.body.length} difficulty={difficulty} onChangeDifficulty={onChangeDifficulty} />
       </header>
       <main className="main">
-        <Field fields={fields} />
+        <Field fields={state.fields} />
       </main>
       <footer className="footer">
         <Button status={status} onStart={onStart} onRestart={onRestart} onStop={onStop} />
