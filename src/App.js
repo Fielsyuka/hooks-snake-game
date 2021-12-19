@@ -1,31 +1,31 @@
-import React, { useCallback, useEffect, useState, useReducer } from 'react';
-import Navigation from './components/Navigation';
-import Field from './components/Field';
-import Button from './components/Button';
-import ManipulationPanel from './components/ManipulationPanel';
-import { initFields, getFoodPosition } from './utils';
+import React, { useCallback, useEffect, useState, useReducer } from "react";
+import Navigation from "./components/Navigation";
+import Field from "./components/Field";
+import Button from "./components/Button";
+import ManipulationPanel from "./components/ManipulationPanel";
+import { initFields, getFoodPosition } from "./utils";
 
 // 定数
 const GameStatus = Object.freeze({
-  init: 'init',
-  playing: 'playing',
-  suspended: 'suspended',
-  gamever: 'gameover'
-})
+  init: "init",
+  playing: "playing",
+  suspended: "suspended",
+  gamever: "gameover",
+});
 
 const Direction = Object.freeze({
-  up: 'up',
-  right: 'right',
-  left: 'left',
-  down: 'down'
-})
+  up: "up",
+  right: "right",
+  left: "left",
+  down: "down",
+});
 
 const OppositeDirection = Object.freeze({
-  up: 'down',
-  right: 'left',
-  left: 'right',
-  down: 'up'
-})
+  up: "down",
+  right: "left",
+  left: "right",
+  down: "up",
+});
 
 const Delta = Object.freeze({
   up: { x: 0, y: -1 },
@@ -48,7 +48,7 @@ const unsubscribe = () => {
     return;
   }
   clearInterval(timer);
-}
+};
 
 // 関数
 const isCollision = (position) => {
@@ -59,57 +59,53 @@ const isCollision = (position) => {
     return true;
   }
   return false;
-}
+};
 
 const isEatingMyself = (fields, position) => {
-  return fields[position.y][position.x] === 'snake';
-}
+  return fields[position.y][position.x] === "snake";
+};
 
 // initial/default
-const defaultInterval = 100;
 const defaultFieldSize = 35;
 const initialBody = { x: 17, y: 17 };
 const initialFood = getFoodPosition(defaultFieldSize, [initialBody]);
 const initialFields = initFields(defaultFieldSize, initialBody, initialFood);
+const defaultDifficulty = 3;
+const Difficulty = [1000, 500, 100, 50, 10];
 
 // reducer
 const initialState = {
   body: [initialBody],
   food: initialFood,
-  removePos: undefined
+  removePos: undefined,
 };
 
 const reducer = (state, action) => {
-  const nextPos = {
-    x: state.body[0].x + Delta[action.direction].x,
-    y: state.body[0].y + Delta[action.direction].y,
-  }
-  const newBody = [nextPos, ...state.body];
+  const newBody = [action.nextPos, ...state.body];
 
   switch (action.type) {
     case "restart":
       return {
         body: [initialBody],
         food: initialFood,
-        removePos: undefined
+        removePos: undefined,
       };
     case "continue":
       const remove = newBody.pop();
-
       return {
         body: newBody,
         food: state.food,
-        removePos: remove
+        removePos: remove,
       };
     case "newFood":
       const newFoodPos = getFoodPosition(defaultFieldSize, newBody);
       return {
         body: newBody,
         food: newFoodPos,
-        removePos: undefined
+        removePos: undefined,
       };
     default:
-      return state
+      return state;
   }
 };
 
@@ -118,25 +114,43 @@ function App() {
   const [fields, setFields] = useState(initialFields);
   const [status, setStatus] = useState(GameStatus.init);
   const [direction, setDirection] = useState(Direction.up);
+  const [difficulty, setDifficulty] = useState(defaultDifficulty);
 
   const onStart = () => setStatus(GameStatus.playing);
+  const onStop = () => setStatus(GameStatus.suspended);
 
   const onRestart = () => {
     setStatus(GameStatus.init);
     setDirection(Direction.up);
-    dispatch({ type: 'restart', direction: direction });
+    dispatch({ type: "restart", direction: direction });
     setFields(initFields(defaultFieldSize, initialBody, initialFood));
-  }
+  };
 
-  const onChangeDirection = useCallback((newDirection) => {
-    if (status !== GameStatus.playing) {
-      return direction;
-    }
-    if (OppositeDirection[direction] === newDirection) {
-      return;
-    }
-    setDirection(newDirection);
-  }, [direction, status]);
+  const onChangeDirection = useCallback(
+    (newDirection) => {
+      if (status !== GameStatus.playing) {
+        return direction;
+      }
+      if (OppositeDirection[direction] === newDirection) {
+        return;
+      }
+      setDirection(newDirection);
+    },
+    [direction, status]
+  );
+
+  const onChangeDifficulty = useCallback(
+    (difficulty) => {
+      if (status !== GameStatus.init) {
+        return;
+      }
+      if (difficulty < 1 || difficulty > Difficulty.length) {
+        return;
+      }
+      setDifficulty(difficulty);
+    },
+    [status]
+  );
 
   // メイン処理
   useEffect(() => {
@@ -144,30 +158,33 @@ function App() {
       return;
     }
 
+    const interval = Difficulty[difficulty - 1];
     timer = setInterval(() => {
-    const newPosition = {
-      x: state.body[0].x + Delta[direction].x,
-      y: state.body[0].y + Delta[direction].y,
-    };
+      const newPosition = {
+        x: state.body[0].x + Delta[direction].x,
+        y: state.body[0].y + Delta[direction].y,
+      };
 
-    if (isCollision(newPosition) || isEatingMyself(fields, newPosition)) {
-      setStatus(GameStatus.gamever);
-    } else {
-      if (fields[newPosition.y][newPosition.x] === 'food') {
-        dispatch({
-          type: "newFood",
-          direction: direction
-        });
+      if (isCollision(newPosition) || isEatingMyself(fields, newPosition)) {
+        setStatus(GameStatus.gamever);
       } else {
-        dispatch({
-          type: "continue",
-          direction: direction
-        });
+        if (fields[newPosition.y][newPosition.x] === "food") {
+          dispatch({
+            type: "newFood",
+            direction: direction,
+            nextPos: newPosition,
+          });
+        } else {
+          dispatch({
+            type: "continue",
+            direction: direction,
+            nextPos: newPosition,
+          });
+        }
       }
-    }
-    }, defaultInterval);
+    }, interval);
     return unsubscribe;
-  },[state, status, direction]);
+  }, [state, status, direction, difficulty]);
 
   // stateに変更があったらfield更新
   useEffect(() => {
@@ -177,13 +194,13 @@ function App() {
     setFields((prevFields) => {
       const newFields = [...prevFields];
       if (state.removePos !== undefined) {
-        newFields[state.removePos.y][state.removePos.x] = '';
+        newFields[state.removePos.y][state.removePos.x] = "";
       }
-      newFields[state.body[0].y][state.body[0].x] = 'snake';
-      newFields[state.food.y][state.food.x] = 'food';
+      newFields[state.body[0].y][state.body[0].x] = "snake";
+      newFields[state.food.y][state.food.x] = "food";
       return newFields;
     });
-  }, [state]);
+  }, [state, status]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -193,8 +210,8 @@ function App() {
       }
       onChangeDirection(newDirection);
     };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown)
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onChangeDirection]);
 
   return (
@@ -203,13 +220,13 @@ function App() {
         <div className="title-container">
           <h1 className="nav-title">Snake Game</h1>
         </div>
-        <Navigation key="navigation" />
+        <Navigation key="navigation" length={state.body.length} difficulty={difficulty} onChangeDifficulty={onChangeDifficulty} />
       </header>
       <main className="main">
         <Field fields={fields} />
       </main>
       <footer className="footer">
-        <Button status={status} onStart={onStart} onRestart={onRestart}/>
+        <Button status={status} onStart={onStart} onRestart={onRestart} onStop={onStop} />
         <ManipulationPanel onChange={onChangeDirection} />
       </footer>
     </div>
