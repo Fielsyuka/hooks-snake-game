@@ -12,7 +12,7 @@ function App() {
     <div className="App">
       <header className="header">
         <div className="title-container">
-          <h1 className="nav-title">Snake Game</h1>
+          <h1 className="title">Snake Game</h1>
         </div>
         <Navigation key="navigation" length={state.body.length} difficulty={difficulty} onChangeDifficulty={updateDifficulty} />
       </header>
