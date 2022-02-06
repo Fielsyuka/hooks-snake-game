@@ -23,10 +23,10 @@ export const initFields = (fieldSize, snake, food) => {
 };
 
 export const isCollision = (position) => {
-  if (position.y < 0 || position.x < 0) {
+  if (position.y <= 0 || position.x <= 0) {
     return true;
   }
-  if (position.y > defaultFieldSize - 1 || position.x > defaultFieldSize - 1) {
+  if (position.y >= defaultFieldSize - 1 || position.x >= defaultFieldSize - 1) {
     return true;
   }
   return false;

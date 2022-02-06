@@ -6,7 +6,7 @@ export const initialFood = getFoodPosition(defaultFieldSize, [initialBody]);
 export const initialFields = initFields(defaultFieldSize, initialBody, initialFood);
 export const defaultInterval = 100;
 export const defaultDifficulty = 3;
-export const Difficulty = [1000, 500, 100, 50, 10];
+export const Difficulty = [100, 80, 50, 30, 10];
 export const initialState = {
   body: [initialBody],
   food: initialFood,

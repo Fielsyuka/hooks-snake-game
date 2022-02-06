@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useReducer } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
   defaultFieldSize,
@@ -9,12 +9,14 @@ import {
   DirectionKeyCodeMap,
   GameStatus,
   OppositeDirection,
+  initialBody,
+  initialFood,
   initialState,
 } from "../constants";
 
-import { isCollision, isEatingMyself, getFoodPosition } from "../utils";
+import { initFields, isCollision, isEatingMyself, getFoodPosition } from "../utils";
 
-import reducer from "../reducers/reducer";
+// import reducer from "../reducers/reducer";
 
 // タイマー
 let timer;
@@ -26,7 +28,7 @@ const unsubscribe = () => {
 };
 
 const useSnakeGame = () => {
-  const [state, dispatch] = useReducer(reducer, initialState);
+  const [state, setState] = useState(initialState);
   const [status, setStatus] = useState(GameStatus.init);
   const [direction, setDirection] = useState(Direction.up);
   const [difficulty, setDifficulty] = useState(defaultDifficulty);
@@ -36,7 +38,11 @@ const useSnakeGame = () => {
   const reload = () => {
     setStatus(GameStatus.init);
     setDirection(Direction.up);
-    dispatch({ type: "reset" });
+    setState({
+      body: [initialBody],
+      food: initialFood,
+      fields: initFields(defaultFieldSize, initialBody, initialFood),
+    });
   };
 
   const updateDirection = useCallback(
@@ -84,29 +90,38 @@ const useSnakeGame = () => {
     }
 
     const interval = Difficulty[difficulty - 1];
+
     timer = setInterval(() => {
       const newPosition = {
         x: state.body[0].x + Delta[direction].x,
         y: state.body[0].y + Delta[direction].y,
       };
-
       if (isCollision(newPosition) || isEatingMyself(state.fields, newPosition)) {
         setStatus(GameStatus.gameover);
-      } else {
-        if (state.fields[newPosition.y][newPosition.x] === "food") {
-          const newFoodPos = getFoodPosition(defaultFieldSize, [...state.body, newPosition]);
-          dispatch({
-            type: "newFood",
-            nextPos: newPosition,
-            nextFood: newFoodPos,
-          });
-        } else {
-          dispatch({
-            type: "continue",
-            nextPos: newPosition,
-          });
-        }
       }
+      setState((prev) => {
+        const newBody = [newPosition, ...prev.body];
+        const newFields = [...prev.fields];
+        if (newFields[newPosition.y][newPosition.x] === "food") {
+          const newFoodPos = getFoodPosition(defaultFieldSize, [...state.body, newPosition]);
+          newFields[newPosition.y][newPosition.x] = "snake";
+          newFields[newFoodPos.y][newFoodPos.x] = "food";
+          return {
+            body: newBody,
+            food: newFoodPos,
+            fields: newFields,
+          };
+        } else {
+          const remove = newBody.pop();
+          newFields[remove.y][remove.x] = "";
+          newFields[newPosition.y][newPosition.x] = "snake";
+          return {
+            ...prev,
+            body: newBody,
+            fields: newFields,
+          };
+        }
+      });
     }, interval);
     return unsubscribe;
   }, [state, status, direction, difficulty]);
