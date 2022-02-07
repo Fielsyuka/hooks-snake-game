@@ -73,7 +73,7 @@ const useSnakeGame = () => {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      const newDirection = DirectionKeyCodeMap[e.keyCode];
+      const newDirection = DirectionKeyCodeMap[e.key];
       if (!newDirection) {
         return;
       }
@@ -96,32 +96,34 @@ const useSnakeGame = () => {
         x: state.body[0].x + Delta[direction].x,
         y: state.body[0].y + Delta[direction].y,
       };
+
       if (isCollision(newPosition) || isEatingMyself(state.fields, newPosition)) {
         setStatus(GameStatus.gameover);
       }
-      setState((prev) => {
-        const newBody = [newPosition, ...prev.body];
-        const newFields = [...prev.fields];
-        if (newFields[newPosition.y][newPosition.x] === "food") {
-          const newFoodPos = getFoodPosition(defaultFieldSize, [...state.body, newPosition]);
-          newFields[newPosition.y][newPosition.x] = "snake";
-          newFields[newFoodPos.y][newFoodPos.x] = "food";
-          return {
-            body: newBody,
-            food: newFoodPos,
-            fields: newFields,
-          };
-        } else {
-          const remove = newBody.pop();
-          newFields[remove.y][remove.x] = "";
-          newFields[newPosition.y][newPosition.x] = "snake";
+
+      const newBody = [newPosition, ...state.body];
+      const newFields = [...state.fields];
+      if (state.fields[newPosition.y][newPosition.x] === "food") {
+        const newFoodPos = getFoodPosition(defaultFieldSize, [...state.body, newPosition]);
+        newFields[newPosition.y][newPosition.x] = "snake";
+        newFields[newFoodPos.y][newFoodPos.x] = "food";
+        setState({
+          body: newBody,
+          food: newFoodPos,
+          fields: newFields,
+        });
+      } else {
+        const remove = newBody.pop();
+        newFields[remove.y][remove.x] = "";
+        newFields[newPosition.y][newPosition.x] = "snake";
+        setState((prev) => {
           return {
             ...prev,
             body: newBody,
             fields: newFields,
           };
-        }
-      });
+        });
+      }
     }, interval);
     return unsubscribe;
   }, [state, status, direction, difficulty]);

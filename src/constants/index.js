@@ -28,10 +28,10 @@ export const Direction = Object.freeze({
 });
 
 export const DirectionKeyCodeMap = Object.freeze({
-  37: Direction.left,
-  38: Direction.up,
-  39: Direction.right,
-  40: Direction.down,
+  ArrowLeft: Direction.left,
+  ArrowUp: Direction.up,
+  ArrowRight: Direction.right,
+  ArrowDown: Direction.down,
 });
 
 export const OppositeDirection = Object.freeze({
